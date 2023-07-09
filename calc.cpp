@@ -32,11 +32,47 @@ struct Token {
   }
 };
 
-/*void lexer(string expr) {
-  for (size_t i  = 0, i < expr.length(); ++i) {
-    if ()
+Token lex_num(const std::string& expr, size_t* index) {
+  int result = 0;
+  size_t i = *index;
+  for (; i < expr.length(); ++i) {
+    if (expr[i] >= '0' && expr[i] <= '9') {
+      result = result * 10 + (expr[i] - '0');
+    } else {
+      break;
+    }
   }
-}*/
+  *index = i;
+  return Token(result);
+}
+
+void lex_space(const std::string& expr, size_t* index) {
+  size_t i = *index;
+  for (; i < expr.length(); ++i) {
+    if (expr[i] != ' ') {
+      break;
+    }
+  }
+  *index = i;
+}
+
+void lexer(const std::string& expr, std::vector<Token>& tokens) {
+  size_t index = 0;
+  while (index < expr.length()) {
+    size_t i = index;
+    Token t = lex_num(expr, &index);
+    if (i < index) {
+      tokens.push_back(t); 
+      continue;
+    } 
+    lex_space(expr, &index);
+    if (i < index) {
+      continue;
+    }
+    assert(i == index);
+    return;
+  } 
+}
 
 std::ostream& operator << (std::ostream& os, const Token& tok) {
   switch(tok.type) {
@@ -59,19 +95,14 @@ std::ostream& operator << (std::ostream& os, const Token& tok) {
 int main() {
     std::string expr;
     std::cout << "Enter your expression:\n";
-    std::cin >> expr;
-
-    std::vector<Token> tokens = {
-        Token(123), 
-        Token('+'), 
-        Token(12), 
-        Token(TokenType::LPAREN), 
-        Token(TokenType::RPAREN)
-    };
+    std::getline(std::cin, expr);
+    std::vector<Token> tokens;
+    lexer(expr, tokens);
 
     for(Token t : tokens) {
       std::cout << t << "\n";
     }
+   
 
     return 0;
 }
