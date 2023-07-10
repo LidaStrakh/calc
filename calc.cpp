@@ -32,7 +32,7 @@ struct Token {
   }
 };
 
-Token lex_num(const std::string& expr, size_t* index) {
+bool lex_num(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   int result = 0;
   size_t i = *index;
   for (; i < expr.length(); ++i) {
@@ -42,36 +42,71 @@ Token lex_num(const std::string& expr, size_t* index) {
       break;
     }
   }
-  *index = i;
-  return Token(result);
+  if (i > *index) {
+    tokens.push_back(Token(result));
+    *index = i;
+    return true;
+  }
+  return false;
 }
 
-void lex_space(const std::string& expr, size_t* index) {
+bool lex_space(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   size_t i = *index;
   for (; i < expr.length(); ++i) {
     if (expr[i] != ' ') {
       break;
     }
   }
-  *index = i;
+  if (i > *index) {
+    *index = i;
+    return true;
+  } 
+  return false;
 }
 
-void lexer(const std::string& expr, std::vector<Token>& tokens) {
+bool lex_paren(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+  size_t i = *index;
+  if (i < expr.length()) {
+    if (expr[i] == '(') {
+      tokens.push_back(Token(TokenType::LPAREN));
+      *index = ++i;
+      return true;
+    } else if (expr[i] == ')') {
+      tokens.push_back(Token(TokenType::RPAREN));
+      *index = ++i;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool lex_oper(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+  size_t i = *index;
+  if (i < expr.length()) {
+    char oper = expr[i];
+    if (oper == '+' || oper == '-' || oper == '*' || oper == '/' ) {
+      *index = ++i;
+      tokens.push_back(Token(oper));
+      return true;
+    }
+  }
+  return false;
+}
+
+bool lexer(const std::string& expr, std::vector<Token>& tokens) {
   size_t index = 0;
   while (index < expr.length()) {
-    size_t i = index;
-    Token t = lex_num(expr, &index);
-    if (i < index) {
-      tokens.push_back(t); 
+    if (lex_num(expr, &index, tokens) ||
+        lex_space(expr, &index, tokens) || 
+        lex_paren(expr, &index, tokens) ||
+        lex_oper(expr, &index, tokens)) {
       continue;
-    } 
-    lex_space(expr, &index);
-    if (i < index) {
-      continue;
+    } else {
+      std::cout << "Error at index " << index << ": \"" << expr.substr(index, std::string::npos) << "\".\n";
+      return false;
     }
-    assert(i == index);
-    return;
   } 
+  return true;
 }
 
 std::ostream& operator << (std::ostream& os, const Token& tok) {
@@ -97,12 +132,11 @@ int main() {
     std::cout << "Enter your expression:\n";
     std::getline(std::cin, expr);
     std::vector<Token> tokens;
-    lexer(expr, tokens);
-
+    if (!lexer(expr, tokens)) {
+      return 1;
+    }
     for(Token t : tokens) {
       std::cout << t << "\n";
     }
-   
-
     return 0;
 }
