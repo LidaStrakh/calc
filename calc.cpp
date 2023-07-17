@@ -127,6 +127,35 @@ std::ostream& operator << (std::ostream& os, const Token& tok) {
   return os;
 }
 
+struct Tree; 
+
+struct TreeNode {
+  Tree* left;
+  Tree* right;
+  char oper;
+};
+
+struct Tree {
+  union {         // anonymous union
+    TreeNode node;
+    size_t num;
+  };
+  bool is_leaf;
+};
+
+std::ostream& operator << (std::ostream& os, const Tree& t) {
+  if (t.is_leaf) {
+    os << t.num;
+  } else {
+    os << "(";
+    os << *t.node.left << " ";
+    os << t.node.oper << " ";
+    os << *t.node.right;
+    os << ")";
+  }
+  return os;
+}
+
 int main() {
     std::string expr;
     std::cout << "Enter your expression:\n";
@@ -138,5 +167,32 @@ int main() {
     for(Token t : tokens) {
       std::cout << t << "\n";
     }
+    // 3 * (1 + 2)
+    Tree t2;
+    t2.num = 3;
+    t2.is_leaf = true;
+
+    Tree t4;
+    t4.num = 1;
+    t4.is_leaf = true;
+
+    Tree t5;
+    t5.num = 2;
+    t5.is_leaf = true;
+
+    Tree t3;
+    t3.node.oper = '+';
+    t3.node.left = &t4;
+    t3.node.right = &t5;
+    t3.is_leaf = false;
+
+    Tree t1;
+    t1.node.oper = '*';
+    t1.node.left = &t2;
+    t1.node.right = &t3;
+    t1.is_leaf = false;
+
+    std::cout << "t1 = " << t1 << "\n";
+
     return 0;
 }
