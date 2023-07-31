@@ -32,7 +32,7 @@ struct Token {
   }
 };
 
-bool lex_num(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+bool lex_num (const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   int result = 0;
   size_t i = *index;
   for (; i < expr.length(); ++i) {
@@ -50,7 +50,7 @@ bool lex_num(const std::string& expr, size_t* index, std::vector<Token>& tokens)
   return false;
 }
 
-bool lex_space(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+bool lex_space (const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   size_t i = *index;
   for (; i < expr.length(); ++i) {
     if (expr[i] != ' ') {
@@ -64,7 +64,7 @@ bool lex_space(const std::string& expr, size_t* index, std::vector<Token>& token
   return false;
 }
 
-bool lex_paren(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+bool lex_paren (const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   size_t i = *index;
   if (i < expr.length()) {
     if (expr[i] == '(') {
@@ -80,7 +80,7 @@ bool lex_paren(const std::string& expr, size_t* index, std::vector<Token>& token
   return false;
 }
 
-bool lex_oper(const std::string& expr, size_t* index, std::vector<Token>& tokens) {
+bool lex_oper (const std::string& expr, size_t* index, std::vector<Token>& tokens) {
   size_t i = *index;
   if (i < expr.length()) {
     char oper = expr[i];
@@ -93,7 +93,7 @@ bool lex_oper(const std::string& expr, size_t* index, std::vector<Token>& tokens
   return false;
 }
 
-bool lexer(const std::string& expr, std::vector<Token>& tokens) {
+bool lexer (const std::string& expr, std::vector<Token>& tokens) {
   size_t index = 0;
   while (index < expr.length()) {
     if (lex_num(expr, &index, tokens) ||
@@ -156,6 +156,58 @@ std::ostream& operator << (std::ostream& os, const Tree& t) {
   return os;
 }
 
+Tree* parse_num (const std::vector<Token>& tokens, size_t* index) {
+  size_t i = *index;
+  if (i < tokens.size() && tokens[i].type == TokenType::NUM) {
+    Tree* t = new Tree;
+    t->num = tokens[i].value.num;
+    t->is_leaf = true;
+    *index = ++i;
+    return t;
+  }
+  return nullptr;
+}
+
+Tree* parse (const std::vector<Token>& tokens, size_t* index) {
+  size_t i = *index;
+  Tree* t1 = parse_num(tokens, &i);
+  if (t1 != nullptr) {
+      
+  } else if (i < tokens.size() && tokens[i].type == TokenType::LPAREN) {
+    ++i;
+    t1 = parse(tokens, &i);
+    assert(i < tokens.size() && tokens[i].type == TokenType::RPAREN);
+    ++i;
+  }
+  if (i == tokens.size() || tokens[i].type == TokenType::RPAREN) {
+    *index = i;
+    return t1;
+  }
+
+  assert(i < tokens.size() && tokens[i].type == TokenType::OPER);
+  char oper = tokens[i].value.oper;
+  ++i;
+
+  Tree* t2 = parse_num(tokens, &i);
+  if (t2 != nullptr) {
+      
+  } else if (i < tokens.size() && tokens[i].type == TokenType::LPAREN) {
+    ++i;
+    t2 = parse(tokens, &i);
+    assert(i < tokens.size() && tokens[i].type == TokenType::RPAREN);
+    ++i;
+  }
+
+  Tree* t3 = new Tree;
+  t3->node.oper = oper;
+  t3->node.left = t1;
+  t3->node.right = t2;
+  t3->is_leaf = false;
+
+  *index = i;
+  return t3;
+}
+
 int main() {
     std::string expr;
     std::cout << "Enter your expression:\n";
@@ -164,35 +216,17 @@ int main() {
     if (!lexer(expr, tokens)) {
       return 1;
     }
-    for(Token t : tokens) {
+    /*for(Token t : tokens) {
       std::cout << t << "\n";
+    }*/
+
+    size_t index = 0;
+    Tree* t = parse(tokens, &index);
+    if (t == nullptr) {
+      std::cout << "Empty tree.\n";
+    } else {
+      std::cout << "Tree: " << *t << "\n";
     }
-    // 3 * (1 + 2)
-    Tree t2;
-    t2.num = 3;
-    t2.is_leaf = true;
-
-    Tree t4;
-    t4.num = 1;
-    t4.is_leaf = true;
-
-    Tree t5;
-    t5.num = 2;
-    t5.is_leaf = true;
-
-    Tree t3;
-    t3.node.oper = '+';
-    t3.node.left = &t4;
-    t3.node.right = &t5;
-    t3.is_leaf = false;
-
-    Tree t1;
-    t1.node.oper = '*';
-    t1.node.left = &t2;
-    t1.node.right = &t3;
-    t1.is_leaf = false;
-
-    std::cout << "t1 = " << t1 << "\n";
 
     return 0;
 }
