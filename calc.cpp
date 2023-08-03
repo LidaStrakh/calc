@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -208,25 +209,52 @@ Tree* parse (const std::vector<Token>& tokens, size_t* index) {
   return t3;
 }
 
+Tree* calc(const std::string& expr) {
+  std::vector<Token> tokens;
+  if (!lexer(expr, tokens)) {
+    return nullptr;
+  }
+  size_t index = 0;
+  return parse(tokens, &index);
+}
+
+void test(const std::string& input, const std::string& expected) {
+  Tree* t = calc(input);
+  std::string actual;
+  if (t == nullptr) {
+    actual = "error";
+  } else {
+    std::stringstream s;
+    s << *t;
+    actual = s.str();
+  }
+  assert(actual == expected);
+}
+
 int main() {
-    std::string expr;
-    std::cout << "Enter your expression:\n";
-    std::getline(std::cin, expr);
-    std::vector<Token> tokens;
-    if (!lexer(expr, tokens)) {
-      return 1;
-    }
-    /*for(Token t : tokens) {
-      std::cout << t << "\n";
-    }*/
+  test("", "error");
+  test("  ", "error");
+  test("abc", "error");
+  test("1 % 2", "error");
+  test("1", "1");
+  test("13 + 244", "(13 + 244)");
+  test("12*   (2 / 3)", "(12 * (2 / 3))");
+  test("(((1)))", "1");
+  test("23 + (((1)))", "(23 + 1)");
 
-    size_t index = 0;
-    Tree* t = parse(tokens, &index);
-    if (t == nullptr) {
-      std::cout << "Empty tree.\n";
-    } else {
-      std::cout << "Tree: " << *t << "\n";
-    }
-
-    return 0;
+  //TODO: fix this case:
+  test("2 + 3 + 4", "(2 + 3)");
+  test("(((1))))", "1"); // error
+  
+  std::string expr;
+  std::cout << "Enter your expression:\n";
+  std::getline(std::cin, expr);
+  Tree* t = calc(expr);
+  if (t == nullptr) {
+    std::cout << "Error.\n";
+  } else {
+    std::cout << "Tree: " << *t << "\n";
+  }
+ 
+  return 0;
 }
