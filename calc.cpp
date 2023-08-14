@@ -157,7 +157,29 @@ std::ostream& operator << (std::ostream& os, const Tree& t) {
   return os;
 }
 
-Tree* parse_num (const std::vector<Token>& tokens, size_t* index) {
+/*
+V = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, +, -, /, *, (, )} terminals
+
+S ::= A
+D ::= 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0
+N ::=  D | DN
+P ::= N | (A)           // factor
+M ::= P | M*P | M/P     // term
+A ::= M | A+M | A-M     // expression
+
+S ::= A
+D ::= 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0
+N ::=  D | DN
+P ::= N | (A)         
+M ::= PM'   
+M' ::= *PM' | /PM' | <empty>
+A ::= MA' 
+A' ::= +MA' | -MA' | <empty>
+*/ 
+Tree* parse_term(const std::vector<Token>& tokens, size_t* index);
+Tree* parse_expr(const std::vector<Token>& tokens, size_t* index);
+
+Tree* parse_num(const std::vector<Token>& tokens, size_t* index) {
   size_t i = *index;
   if (i < tokens.size() && tokens[i].type == TokenType::NUM) {
     Tree* t = new Tree;
@@ -169,44 +191,78 @@ Tree* parse_num (const std::vector<Token>& tokens, size_t* index) {
   return nullptr;
 }
 
-Tree* parse (const std::vector<Token>& tokens, size_t* index) {
-  size_t i = *index;
-  Tree* t1 = parse_num(tokens, &i);
+Tree* parse_factor(const std::vector<Token>& tokens, size_t* index) {
+  Tree* t1 = parse_num(tokens, index);
   if (t1 != nullptr) {
-      
-  } else if (i < tokens.size() && tokens[i].type == TokenType::LPAREN) {
+    return t1; 
+  }
+  size_t i = *index;
+  if (i < tokens.size() && tokens[i].type == TokenType::LPAREN) {
     ++i;
-    t1 = parse(tokens, &i);
+    *index = i;
+    Tree* t2 = parse_expr(tokens, index);
+    i = *index;
     assert(i < tokens.size() && tokens[i].type == TokenType::RPAREN);
     ++i;
-  }
-  if (i == tokens.size() || tokens[i].type == TokenType::RPAREN) {
     *index = i;
+    return t2;
+  } 
+  return nullptr;
+}
+
+Tree* parse_expr1(const std::vector<Token>& tokens, size_t* index, Tree* t1) {
+  size_t i = *index;
+  if (i < tokens.size() && 
+      tokens[i].type == TokenType::OPER &&
+      (tokens[i].value.oper == '+' || tokens[i].value.oper == '-')) {
+    char oper = tokens[i].value.oper;
+    ++i;
+    *index = i;
+    Tree* t2 = parse_term(tokens, index);
+    Tree* t3 = new Tree;
+    t3->node.oper = oper;
+    t3->node.left = t1;
+    t3->node.right = t2;
+    t3->is_leaf = false;
+    return parse_expr1(tokens, index, t3);
+  } else {
     return t1;
   }
+}
 
-  assert(i < tokens.size() && tokens[i].type == TokenType::OPER);
-  char oper = tokens[i].value.oper;
-  ++i;
+Tree* parse(const std::vector<Token>& tokens) {
+  size_t index = 0;
+  return parse_expr(tokens, &index);
+}
 
-  Tree* t2 = parse_num(tokens, &i);
-  if (t2 != nullptr) {
-      
-  } else if (i < tokens.size() && tokens[i].type == TokenType::LPAREN) {
+Tree* parse_expr(const std::vector<Token>& tokens, size_t* index) {
+  Tree* t1 = parse_term(tokens, index);
+  return parse_expr1(tokens, index, t1);  
+}
+
+Tree* parse_term1(const std::vector<Token>& tokens, size_t* index, Tree* t1) {
+  size_t i = *index;
+  if (i < tokens.size() && 
+      tokens[i].type == TokenType::OPER &&
+      (tokens[i].value.oper == '*' || tokens[i].value.oper == '/')) {
+    char oper = tokens[i].value.oper;
     ++i;
-    t2 = parse(tokens, &i);
-    assert(i < tokens.size() && tokens[i].type == TokenType::RPAREN);
-    ++i;
+    *index = i;
+    Tree* t2 = parse_factor(tokens, index);
+    Tree* t3 = new Tree;
+    t3->node.oper = oper;
+    t3->node.left = t1;
+    t3->node.right = t2;
+    t3->is_leaf = false;
+    return parse_term1(tokens, index, t3);
+  } else {
+    return t1;
   }
+}
 
-  Tree* t3 = new Tree;
-  t3->node.oper = oper;
-  t3->node.left = t1;
-  t3->node.right = t2;
-  t3->is_leaf = false;
-
-  *index = i;
-  return t3;
+Tree* parse_term(const std::vector<Token>& tokens, size_t* index) {
+  Tree* t1 = parse_factor(tokens, index);
+  return parse_term1(tokens, index, t1);  
 }
 
 Tree* calc(const std::string& expr) {
@@ -214,8 +270,7 @@ Tree* calc(const std::string& expr) {
   if (!lexer(expr, tokens)) {
     return nullptr;
   }
-  size_t index = 0;
-  return parse(tokens, &index);
+  return parse(tokens);
 }
 
 void test(const std::string& input, const std::string& expected) {
@@ -241,9 +296,15 @@ int main() {
   test("12*   (2 / 3)", "(12 * (2 / 3))");
   test("(((1)))", "1");
   test("23 + (((1)))", "(23 + 1)");
+  test("2 + 3 + 4", "((2 + 3) + 4)");
+  test("2 - 3 - 4", "((2 - 3) - 4)");
+  test("2 * 3 * 4", "((2 * 3) * 4)");
+  test("2 / 3 / 4", "((2 / 3) / 4)");
+  test("2 - 3 * 4", "(2 - (3 * 4))");
+  test("2 * 3 - 4", "((2 * 3) - 4)");
+  test("2 - 3 / 4 * (5 + 6)", "(2 - ((3 / 4) * (5 + 6)))");
 
   //TODO: fix this case:
-  test("2 + 3 + 4", "(2 + 3)");
   test("(((1))))", "1"); // error
   
   std::string expr;
